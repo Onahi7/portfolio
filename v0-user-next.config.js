@@ -1,11 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  images: {
+    domains: ["placeholder.com", "via.placeholder.com"],
+    remotePatterns: [
+      {
+        protocol: "https",
+        hostname: "**",
+      },
+    ],
+  },
   experimental: {
-    // Enable React 19 features
     serverActions: true,
   },
-  // Increase memory limit for builds if needed
   webpack: (config) => {
     config.externals = [...(config.externals || []), "canvas", "jsdom"]
     return config

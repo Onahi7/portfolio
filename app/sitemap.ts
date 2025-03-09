@@ -1,16 +1,102 @@
 import type { MetadataRoute } from "next"
+import { createClient } from "@/lib/supabase-server"
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = "https://hardytechnology.xyz"
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://hardytechnology.xyz"
 
-  // Define all your routes
-  const routes = ["", "/training", "/pricing", "/calculator", "/contact", "/vision", "/portfolio", "/blog"]
+  // Static routes
+  const routes = [
+    {
+      url: `${baseUrl}`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 1,
+    },
+    {
+      url: `${baseUrl}/training`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/training/frontend`,
+      lastModified: new Date(),
+      changeFrequency: "weekly",
+      priority: 0.9,
+    },
+    {
+      url: `${baseUrl}/training-events`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/training-events/frontend`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/advertise-training`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/contact`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+    {
+      url: `${baseUrl}/vision`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.5,
+    },
+    {
+      url: `${baseUrl}/services`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.8,
+    },
+    {
+      url: `${baseUrl}/pricing`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.7,
+    },
+    {
+      url: `${baseUrl}/calculator`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
+  ] as MetadataRoute.Sitemap
 
-  return routes.map((route) => ({
-    url: `${baseUrl}${route}`,
-    lastModified: new Date(),
-    changeFrequency: "weekly",
-    priority: route === "" ? 1 : 0.8,
-  }))
+  // Dynamic routes - Training events
+  try {
+    const supabase = createClient()
+    const { data: events } = await supabase
+      .from("external_trainings")
+      .select("id, updated_at")
+      .eq("approved", true)
+      .gte("end_date", new Date().toISOString())
+
+    if (events) {
+      const eventRoutes = events.map((event) => ({
+        url: `${baseUrl}/training-events/${event.id}`,
+        lastModified: new Date(event.updated_at),
+        changeFrequency: "weekly" as const,
+        priority: 0.7,
+      }))
+
+      routes.push(...eventRoutes)
+    }
+  } catch (error) {
+    console.error("Error fetching events for sitemap:", error)
+  }
+
+  return routes
 }
 

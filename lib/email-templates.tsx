@@ -1,1301 +1,464 @@
-import type React from "react"
+import React from "react"
 import { renderToStaticMarkup } from "react-dom/server"
 
-// Add TypeScript interfaces for all template props at the top of the file, after the imports
-
-// Add this after the imports
+// Base interface for all email templates
 interface BaseEmailTemplateProps {
-  title: string
-  previewText?: string
-  content: string
-  footerText?: string
+  name?: string
 }
 
-interface WelcomeEmailTemplateProps {
-  name?: string
+// Specific interfaces for each email template
+interface WelcomeEmailTemplateProps extends BaseEmailTemplateProps {
   confirmationUrl: string
 }
 
-interface PasswordResetEmailTemplateProps {
-  name?: string
+interface PasswordResetEmailTemplateProps extends BaseEmailTemplateProps {
   resetUrl: string
 }
 
-interface MagicLinkEmailTemplateProps {
-  name?: string
-  magicLinkUrl: string
+interface VerificationEmailTemplateProps extends BaseEmailTemplateProps {
+  verificationUrl: string
 }
 
-interface DeveloperWelcomeEmailTemplateProps {
-  name?: string
-  dashboardUrl: string
-}
-
-interface ApiKeyCreatedEmailTemplateProps {
-  name?: string
-  apiKey: string
-  dashboardUrl: string
-}
-
-interface EventRegistrationConfirmationEmailTemplateProps {
-  name?: string
-  eventTitle: string
+interface EventRegistrationEmailTemplateProps extends BaseEmailTemplateProps {
+  eventName: string
   eventDate: string
   eventLocation: string
-  eventDetails: string
-  ticketUrl: string
+  ticketInfo: {
+    ticketType: string
+    ticketPrice: number
+    ticketId: string
+  }
 }
 
-interface EventReminderEmailTemplateProps {
-  name?: string
-  eventTitle: string
-  eventDate: string
-  eventLocation: string
-  eventStartTime: string
-  ticketUrl: string
-}
-
-interface PaymentConfirmationEmailTemplateProps {
-  name?: string
-  amount: number
+interface PaymentConfirmationEmailTemplateProps extends BaseEmailTemplateProps {
+  paymentAmount: number
   paymentDate: string
-  paymentMethod: string
-  invoiceNumber: string
-  invoiceUrl: string
+  paymentId: string
   itemsPurchased: Array<{ name: string; price: number }>
 }
 
-interface PaymentFailedEmailTemplateProps {
-  name?: string
-  amount: number
-  paymentDate: string
-  paymentMethod: string
-  errorMessage?: string
-  retryUrl: string
-}
-
-interface CourseEnrollmentEmailTemplateProps {
-  name?: string
+interface CourseEnrollmentEmailTemplateProps extends BaseEmailTemplateProps {
   courseName: string
-  courseStartDate: string
+  startDate: string
   instructorName: string
-  courseUrl: string
-  prerequisites: string[]
+  accessLink: string
 }
 
-interface CourseCompletionEmailTemplateProps {
-  name?: string
-  courseName: string
-  completionDate: string
-  certificateUrl: string
-  nextCourseRecommendations: Array<{ name: string; url: string; description: string }>
+interface EventOrganizerNotificationProps extends BaseEmailTemplateProps {
+  eventName: string
+  registrantName: string
+  registrantEmail: string
+  registrationDate: string
+  ticketType: string
 }
 
-interface EventApprovalEmailTemplateProps {
-  organizerName?: string
-  eventTitle: string
-  eventDate: string
-  eventLocation: string
-  eventUrl: string
-  adminComments?: string
-}
-
-interface EventRejectionEmailTemplateProps {
-  organizerName?: string
-  eventTitle: string
-  rejectionReason: string
-  dashboardUrl: string
-}
-
-// Base email template with consistent styling
-const BaseEmailTemplate = ({
-  title,
-  previewText = "",
-  content,
-  footerText = "© Hardy Technology. All rights reserved.",
-}: BaseEmailTemplateProps): string => {
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
+// Base email layout component
+const BaseEmailLayout = ({ children, title }: { children: React.ReactNode; title: string }): JSX.Element => (
+  <html>
     <head>
-      <meta charset="UTF-8">
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <meta http-equiv="X-UA-Compatible" content="ie=edge">
-      <title>${title}</title>
-      <meta name="description" content="${previewText}">
-      <style>
+      <title>{title}</title>
+      <meta charSet="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+      <style>{`
         body {
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
           line-height: 1.6;
           color: #333;
           margin: 0;
           padding: 0;
-          background-color: #f9fafb;
+          background-color: #f9f9f9;
         }
         .container {
           max-width: 600px;
           margin: 0 auto;
           padding: 20px;
           background-color: #ffffff;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
         .header {
           text-align: center;
           padding: 20px 0;
-          border-bottom: 1px solid #e5e7eb;
+          border-bottom: 1px solid #eaeaea;
         }
         .logo {
-          font-size: 24px;
-          font-weight: bold;
-          color: #111827;
-        }
-        .logo span {
-          color: #3b82f6;
+          max-width: 150px;
+          height: auto;
         }
         .content {
-          padding: 30px 20px;
+          padding: 20px 0;
         }
         .footer {
           text-align: center;
-          padding: 20px;
-          font-size: 14px;
-          color: #6b7280;
-          border-top: 1px solid #e5e7eb;
+          padding: 20px 0;
+          font-size: 12px;
+          color: #666;
+          border-top: 1px solid #eaeaea;
         }
         .button {
           display: inline-block;
-          padding: 12px 24px;
-          background-color: #3b82f6;
+          padding: 10px 20px;
+          background-color: #0070f3;
           color: white;
           text-decoration: none;
-          border-radius: 6px;
+          border-radius: 5px;
           font-weight: 500;
           margin: 20px 0;
         }
         .button:hover {
-          background-color: #2563eb;
+          background-color: #0051cc;
         }
-        .secondary-button {
-          display: inline-block;
-          padding: 12px 24px;
-          background-color: #ffffff;
-          color: #3b82f6;
-          text-decoration: none;
-          border-radius: 6px;
-          font-weight: 500;
-          margin: 20px 0;
-          border: 1px solid #3b82f6;
+        h1, h2, h3 {
+          color: #0070f3;
         }
-        .secondary-button:hover {
-          background-color: #f3f4f6;
+        p {
+          margin: 10px 0;
         }
-        .info-box {
-          background-color: #f3f4f6;
-          border-radius: 6px;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .highlight {
-          font-weight: bold;
-          color: #3b82f6;
-        }
-        .divider {
-          border-top: 1px solid #e5e7eb;
-          margin: 20px 0;
-        }
-        .social-links {
-          text-align: center;
-          margin: 20px 0;
-        }
-        .social-links a {
-          display: inline-block;
-          margin: 0 10px;
-          color: #6b7280;
-          text-decoration: none;
-        }
-        .social-links a:hover {
-          color: #3b82f6;
-        }
-        @media only screen and (max-width: 600px) {
-          .container {
-            width: 100%;
-          }
-          .content {
-            padding: 20px 15px;
-          }
-        }
-      </style>
+      `}</style>
     </head>
     <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">Hardy<span>Tech</span></div>
+      <div className="container">
+        <div className="header">
+          <img src="https://hardytechnology.xyz/logo.png" alt="Hardy Technology" className="logo" />
         </div>
-        <div class="content">
-          ${content}
-        </div>
-        <div class="footer">
-          <div class="social-links">
-            <a href="https://twitter.com/hardytech">Twitter</a>
-            <a href="https://facebook.com/hardytech">Facebook</a>
-            <a href="https://linkedin.com/company/hardytech">LinkedIn</a>
-          </div>
-          <p>${footerText}</p>
+        <div className="content">{children}</div>
+        <div className="footer">
+          <p>© {new Date().getFullYear()} Hardy Technology. All rights reserved.</p>
           <p>123 Tech Street, Lagos, Nigeria</p>
+          <p>
+            <a href="https://hardytechnology.xyz/privacy">Privacy Policy</a> |
+            <a href="https://hardytechnology.xyz/terms">Terms of Service</a>
+          </p>
         </div>
       </div>
     </body>
-    </html>
-  `
-}
+  </html>
+)
 
-// 1. Authentication Email Templates
-
+// Email template functions
 export const WelcomeEmailTemplate = ({ name, confirmationUrl }: WelcomeEmailTemplateProps): string => {
-  const content = `
-    <h1>Welcome to Hardy Technology!</h1>
-    <p>Hello ${name || "there"},</p>
-    <p>Thank you for signing up with Hardy Technology. We're excited to have you on board!</p>
-    <p>Please confirm your email address by clicking the button below:</p>
-    <div style="text-align: center;">
-      <a href="${confirmationUrl}" class="button">Confirm Email Address</a>
-    </div>
-    <p>If you didn't create an account, you can safely ignore this email.</p>
-    <div class="info-box">
-      <p>Need help? Contact our support team at <a href="mailto:support@hardytechnology.xyz">support@hardytechnology.xyz</a></p>
-    </div>
-  `
+  const emailContent = (
+    <BaseEmailLayout title="Welcome to Hardy Technology">
+      <h1>Welcome to Hardy Technology!</h1>
+      <p>Hello {name || "there"},</p>
+      <p>Thank you for joining Hardy Technology. We're excited to have you on board!</p>
+      <p>Please confirm your email address by clicking the button below:</p>
+      <p style={{ textAlign: "center" }}>
+        <a href={confirmationUrl} className="button">
+          Confirm Email
+        </a>
+      </p>
+      <p>If you didn't create an account, you can safely ignore this email.</p>
+      <p>
+        Best regards,
+        <br />
+        The Hardy Technology Team
+      </p>
+    </BaseEmailLayout>
+  )
 
-  return BaseEmailTemplate({
-    title: "Welcome to Hardy Technology",
-    previewText: "Welcome to Hardy Technology - Please confirm your email",
-    content,
-  })
+  return renderToStaticMarkup(emailContent)
 }
 
 export const PasswordResetEmailTemplate = ({ name, resetUrl }: PasswordResetEmailTemplateProps): string => {
-  const content = `
-    <h1>Reset Your Password</h1>
-    <p>Hello ${name || "there"},</p>
-    <p>We received a request to reset your password. If you didn't make this request, you can safely ignore this email.</p>
-    <p>To reset your password, click the button below:</p>
-    <div style="text-align: center;">
-      <a href="${resetUrl}" class="button">Reset Password</a>
-    </div>
-    <p>This link will expire in 24 hours.</p>
-    <div class="info-box">
-      <p>If you're having trouble, contact our support team at <a href="mailto:support@hardytechnology.xyz">support@hardytechnology.xyz</a></p>
-    </div>
-  `
+  const emailContent = (
+    <BaseEmailLayout title="Reset Your Password">
+      <h1>Reset Your Password</h1>
+      <p>Hello {name || "there"},</p>
+      <p>We received a request to reset your password. Click the button below to create a new password:</p>
+      <p style={{ textAlign: "center" }}>
+        <a href={resetUrl} className="button">
+          Reset Password
+        </a>
+      </p>
+      <p>If you didn't request a password reset, you can safely ignore this email.</p>
+      <p>This link will expire in 24 hours.</p>
+      <p>
+        Best regards,
+        <br />
+        The Hardy Technology Team
+      </p>
+    </BaseEmailLayout>
+  )
 
-  return BaseEmailTemplate({
-    title: "Reset Your Password - Hardy Technology",
-    previewText: "Reset your Hardy Technology account password",
-    content,
-  })
+  return renderToStaticMarkup(emailContent)
 }
 
-export const MagicLinkEmailTemplate = ({ name, magicLinkUrl }: MagicLinkEmailTemplateProps): string => {
-  const content = `
-    <h1>Your Login Link</h1>
-    <p>Hello ${name || "there"},</p>
-    <p>Click the button below to sign in to your Hardy Technology account:</p>
-    <div style="text-align: center;">
-      <a href="${magicLinkUrl}" class="button">Sign In</a>
-    </div>
-    <p>This link will expire in 10 minutes and can only be used once.</p>
-    <div class="info-box">
-      <p>If you didn't request this link, please ignore this email or contact us at <a href="mailto:support@hardytechnology.xyz">support@hardytechnology.xyz</a></p>
-    </div>
-  `
+export const VerificationEmailTemplate = ({ name, verificationUrl }: VerificationEmailTemplateProps): string => {
+  const emailContent = (
+    <BaseEmailLayout title="Verify Your Email">
+      <h1>Verify Your Email Address</h1>
+      <p>Hello {name || "there"},</p>
+      <p>Please verify your email address by clicking the button below:</p>
+      <p style={{ textAlign: "center" }}>
+        <a href={verificationUrl} className="button">
+          Verify Email
+        </a>
+      </p>
+      <p>If you didn't create an account, you can safely ignore this email.</p>
+      <p>
+        Best regards,
+        <br />
+        The Hardy Technology Team
+      </p>
+    </BaseEmailLayout>
+  )
 
-  return BaseEmailTemplate({
-    title: "Your Login Link - Hardy Technology",
-    previewText: "Your magic link to sign in to Hardy Technology",
-    content,
-  })
+  return renderToStaticMarkup(emailContent)
 }
 
-// 2. Developer-related Email Templates
-
-export const DeveloperWelcomeEmailTemplate = ({ name, dashboardUrl }: DeveloperWelcomeEmailTemplateProps): string => {
-  const content = `
-    <h1>Welcome to the Developer Program!</h1>
-    <p>Hello ${name || "Developer"},</p>
-    <p>Welcome to the Hardy Technology Developer Program. We're excited to have you join our community of innovative developers!</p>
-    <p>As a developer, you now have access to:</p>
-    <ul>
-      <li>Our comprehensive API documentation</li>
-      <li>Developer tools and resources</li>
-      <li>Technical support from our engineering team</li>
-      <li>Early access to new features</li>
-    </ul>
-    <div style="text-align: center;">
-      <a href="${dashboardUrl}" class="button">Access Developer Dashboard</a>
-    </div>
-    <div class="divider"></div>
-    <h3>Getting Started</h3>
-    <p>Here are some resources to help you get started:</p>
-    <ul>
-      <li><a href="#">API Documentation</a></li>
-      <li><a href="#">Developer Guides</a></li>
-      <li><a href="#">Sample Projects</a></li>
-    </ul>
-    <div class="info-box">
-      <p>Questions? Join our <a href="#">Developer Community</a> or email us at <a href="mailto:developers@hardytechnology.xyz">developers@hardytechnology.xyz</a></p>
-    </div>
-  `
-
-  return BaseEmailTemplate({
-    title: "Welcome to the Hardy Technology Developer Program",
-    previewText: "Your developer account is ready - Get started with Hardy Technology",
-    content,
-  })
-}
-
-export const ApiKeyCreatedEmailTemplate = ({ name, apiKey, dashboardUrl }: ApiKeyCreatedEmailTemplateProps): string => {
-  const content = `
-    <h1>Your API Key Has Been Created</h1>
-    <p>Hello ${name || "Developer"},</p>
-    <p>Your new API key has been successfully created.</p>
-    <div class="info-box">
-      <p>Your API Key: <span class="highlight">${apiKey}</span></p>
-      <p><strong>Important:</strong> This is the only time we'll show you this key. Please store it securely.</p>
-    </div>
-    <p>You can manage your API keys and view usage statistics in your developer dashboard:</p>
-    <div style="text-align: center;">
-      <a href="${dashboardUrl}" class="button">Go to Developer Dashboard</a>
-    </div>
-    <div class="divider"></div>
-    <h3>Security Recommendations</h3>
-    <ul>
-      <li>Never share your API key publicly</li>
-      <li>Store your API key securely in environment variables</li>
-      <li>Rotate your keys periodically</li>
-    </ul>
-  `
-
-  return BaseEmailTemplate({
-    title: "Your New API Key - Hardy Technology",
-    previewText: "Your Hardy Technology API key has been created",
-    content,
-  })
-}
-
-// 3. Event Registration Email Templates
-
-export const EventRegistrationConfirmationEmailTemplate = ({
+export const EventRegistrationEmailTemplate = ({
   name,
-  eventTitle,
+  eventName,
   eventDate,
   eventLocation,
-  eventDetails,
-  ticketUrl,
-}: EventRegistrationConfirmationEmailTemplateProps): string => {
-  const content = `
-    <h1>Event Registration Confirmed!</h1>
-    <p>Hello ${name || "there"},</p>
-    <p>Thank you for registering for <strong>${eventTitle}</strong>. Your registration has been confirmed!</p>
-    <div class="info-box">
-      <h3>Event Details</h3>
-      <p><strong>Date:</strong> ${eventDate}</p>
-      <p><strong>Location:</strong> ${eventLocation}</p>
-      <p><strong>Details:</strong> ${eventDetails}</p>
-    </div>
-    <div style="text-align: center;">
-      <a href="${ticketUrl}" class="button">View Your Ticket</a>
-    </div>
-    <div class="divider"></div>
-    <h3>What's Next?</h3>
-    <ul>
-      <li>Add this event to your calendar</li>
-      <li>Prepare any questions you have for the speakers</li>
-      <li>Share this event with colleagues who might be interested</li>
-    </ul>
-    <p>We look forward to seeing you at the event!</p>
-  `
+  ticketInfo,
+}: EventRegistrationEmailTemplateProps): string => {
+  const emailContent = (
+    <BaseEmailLayout title={`Registration Confirmed: ${eventName}`}>
+      <h1>Registration Confirmed!</h1>
+      <p>Hello {name || "there"},</p>
+      <p>
+        Thank you for registering for <strong>{eventName}</strong>. Your registration has been confirmed!
+      </p>
+      <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "5px", margin: "20px 0" }}>
+        <h2>Event Details</h2>
+        <p>
+          <strong>Event:</strong> {eventName}
+        </p>
+        <p>
+          <strong>Date:</strong> {eventDate}
+        </p>
+        <p>
+          <strong>Location:</strong> {eventLocation}
+        </p>
+        <p>
+          <strong>Ticket Type:</strong> {ticketInfo.ticketType}
+        </p>
+        <p>
+          <strong>Ticket ID:</strong> {ticketInfo.ticketId}
+        </p>
+        <p>
+          <strong>Price:</strong> ₦{ticketInfo.ticketPrice.toLocaleString()}
+        </p>
+      </div>
+      <p>We look forward to seeing you at the event!</p>
+      <p>
+        Best regards,
+        <br />
+        The Hardy Technology Team
+      </p>
+    </BaseEmailLayout>
+  )
 
-  return BaseEmailTemplate({
-    title: `Registration Confirmed: ${eventTitle}`,
-    previewText: `Your registration for ${eventTitle} has been confirmed`,
-    content,
-  })
+  return renderToStaticMarkup(emailContent)
 }
-
-export const EventReminderEmailTemplate = ({
-  name,
-  eventTitle,
-  eventDate,
-  eventLocation,
-  eventStartTime,
-  ticketUrl,
-}: EventReminderEmailTemplateProps): string => {
-  const content = `
-    <h1>Event Reminder: ${eventTitle}</h1>
-    <p>Hello ${name || "there"},</p>
-    <p>This is a friendly reminder that <strong>${eventTitle}</strong> is coming up soon!</p>
-    <div class="info-box">
-      <h3>Event Details</h3>
-      <p><strong>Date:</strong> ${eventDate}</p>
-      <p><strong>Time:</strong> ${eventStartTime}</p>
-      <p><strong>Location:</strong> ${eventLocation}</p>
-    </div>
-    <div style="text-align: center;">
-      <a href="${ticketUrl}" class="button">View Your Ticket</a>
-    </div>
-    <div class="divider"></div>
-    <h3>Preparation Tips</h3>
-    <ul>
-      <li>Arrive 15 minutes early for check-in</li>
-      <li>Bring your ticket (digital or printed)</li>
-      <li>Prepare any questions you have for the speakers</li>
-    </ul>
-    <p>We look forward to seeing you at the event!</p>
-  `
-
-  return BaseEmailTemplate({
-    title: `Reminder: ${eventTitle} is Coming Up!`,
-    previewText: `Your upcoming event: ${eventTitle} on ${eventDate}`,
-    content,
-  })
-}
-
-// 4. Payment Confirmation Email Templates
 
 export const PaymentConfirmationEmailTemplate = ({
   name,
-  amount,
+  paymentAmount,
   paymentDate,
-  paymentMethod,
-  invoiceNumber,
-  invoiceUrl,
+  paymentId,
   itemsPurchased,
 }: PaymentConfirmationEmailTemplateProps): string => {
-  const formattedAmount = new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-  }).format(amount)
+  const emailContent = (
+    <BaseEmailLayout title="Payment Confirmation">
+      <h1>Payment Confirmation</h1>
+      <p>Hello {name || "there"},</p>
+      <p>Thank you for your payment. This email confirms that your payment has been processed successfully.</p>
+      <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "5px", margin: "20px 0" }}>
+        <h2>Payment Details</h2>
+        <p>
+          <strong>Amount:</strong> ₦{paymentAmount.toLocaleString()}
+        </p>
+        <p>
+          <strong>Date:</strong> {paymentDate}
+        </p>
+        <p>
+          <strong>Transaction ID:</strong> {paymentId}
+        </p>
+        <h3>Items Purchased</h3>
+        <ul>
+          {itemsPurchased.map((item, index) => (
+            <li key={index}>
+              {item.name} - ₦{item.price.toLocaleString()}
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p>If you have any questions about your payment, please contact our support team.</p>
+      <p>
+        Best regards,
+        <br />
+        The Hardy Technology Team
+      </p>
+    </BaseEmailLayout>
+  )
 
-  const content = `
-    <h1>Payment Confirmation</h1>
-    <p>Hello ${name || "there"},</p>
-    <p>Thank you for your payment. We've received your payment of <strong>${formattedAmount}</strong>.</p>
-    <div class="info-box">
-      <h3>Payment Details</h3>
-      <p><strong>Amount:</strong> ${formattedAmount}</p>
-      <p><strong>Date:</strong> ${paymentDate}</p>
-      <p><strong>Payment Method:</strong> ${paymentMethod}</p>
-      <p><strong>Invoice Number:</strong> ${invoiceNumber}</p>
-    </div>
-    <h3>Items Purchased</h3>
-    <ul>
-      ${itemsPurchased.map((item) => `<li>${item.name} - ${new Intl.NumberFormat("en-NG", { style: "currency", currency: "NGN" }).format(item.price)}</li>`).join("")}
-    </ul>
-    <div style="text-align: center;">
-      <a href="${invoiceUrl}" class="button">View Invoice</a>
-    </div>
-    <div class="divider"></div>
-    <p>If you have any questions about this payment, please contact our support team at <a href="mailto:billing@hardytechnology.xyz">billing@hardytechnology.xyz</a>.</p>
-  `
-
-  return BaseEmailTemplate({
-    title: "Payment Confirmation - Hardy Technology",
-    previewText: `Your payment of ${formattedAmount} has been received`,
-    content,
-  })
+  return renderToStaticMarkup(emailContent)
 }
-
-export const PaymentFailedEmailTemplate = ({
-  name,
-  amount,
-  paymentDate,
-  paymentMethod,
-  errorMessage,
-  retryUrl,
-}: PaymentFailedEmailTemplateProps): string => {
-  const formattedAmount = new Intl.NumberFormat("en-NG", {
-    style: "currency",
-    currency: "NGN",
-  }).format(amount)
-
-  const content = `
-    <h1>Payment Failed</h1>
-    <p>Hello ${name || "there"},</p>
-    <p>We're sorry, but your recent payment attempt of <strong>${formattedAmount}</strong> was unsuccessful.</p>
-    <div class="info-box">
-      <h3>Payment Details</h3>
-      <p><strong>Amount:</strong> ${formattedAmount}</p>
-      <p><strong>Date:</strong> ${paymentDate}</p>
-      <p><strong>Payment Method:</strong> ${paymentMethod}</p>
-      <p><strong>Error:</strong> ${errorMessage || "Your payment could not be processed."}</p>
-    </div>
-    <div style="text-align: center;">
-      <a href="${retryUrl}" class="button">Try Payment Again</a>
-    </div>
-    <div class="divider"></div>
-    <h3>Common Issues</h3>
-    <ul>
-      <li>Insufficient funds</li>
-      <li>Incorrect card details</li>
-      <li>Card expired</li>
-      <li>Bank declined the transaction</li>
-    </ul>
-    <p>If you continue to experience issues, please contact our support team at <a href="mailto:billing@hardytechnology.xyz">billing@hardytechnology.xyz</a>.</p>
-  `
-
-  return BaseEmailTemplate({
-    title: "Payment Failed - Hardy Technology",
-    previewText: "Your recent payment attempt was unsuccessful",
-    content,
-  })
-}
-
-// 5. Training Course Email Templates
 
 export const CourseEnrollmentEmailTemplate = ({
   name,
   courseName,
-  courseStartDate,
+  startDate,
   instructorName,
-  courseUrl,
-  prerequisites,
+  accessLink,
 }: CourseEnrollmentEmailTemplateProps): string => {
-  const content = `
-    <h1>Welcome to ${courseName}!</h1>
-    <p>Hello ${name || "there"},</p>
-    <p>Thank you for enrolling in <strong>${courseName}</strong>. We're excited to have you join this course!</p>
-    <div class="info-box">
-      <h3>Course Details</h3>
-      <p><strong>Start Date:</strong> ${courseStartDate}</p>
-      <p><strong>Instructor:</strong> ${instructorName}</p>
-    </div>
-    <div style="text-align: center;">
-      <a href="${courseUrl}" class="button">Access Your Course</a>
-    </div>
-    <div class="divider"></div>
-    <h3>Getting Started</h3>
-    <p>To prepare for this course, please:</p>
-    <ul>
-      ${prerequisites.map((prereq) => `<li>${prereq}</li>`).join("")}
-    </ul>
-    <h3>Course Schedule</h3>
-    <p>You'll receive a detailed course schedule in a separate email. All sessions will be recorded and made available in your course dashboard.</p>
-    <p>If you have any questions, please contact our education team at <a href="mailto:education@hardytechnology.xyz">education@hardytechnology.xyz</a>.</p>
-  `
+  const emailContent = (
+    <BaseEmailLayout title={`Welcome to ${courseName}`}>
+      <h1>Welcome to {courseName}!</h1>
+      <p>Hello {name || "there"},</p>
+      <p>
+        Thank you for enrolling in <strong>{courseName}</strong>. We're excited to have you join us!
+      </p>
+      <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "5px", margin: "20px 0" }}>
+        <h2>Course Details</h2>
+        <p>
+          <strong>Course:</strong> {courseName}
+        </p>
+        <p>
+          <strong>Start Date:</strong> {startDate}
+        </p>
+        <p>
+          <strong>Instructor:</strong> {instructorName}
+        </p>
+      </div>
+      <p>You can access your course materials by clicking the button below:</p>
+      <p style={{ textAlign: "center" }}>
+        <a href={accessLink} className="button">
+          Access Course
+        </a>
+      </p>
+      <p>We hope you enjoy the course and find it valuable for your professional development.</p>
+      <p>
+        Best regards,
+        <br />
+        The Hardy Technology Team
+      </p>
+    </BaseEmailLayout>
+  )
 
-  return BaseEmailTemplate({
-    title: `Welcome to ${courseName} - Hardy Technology`,
-    previewText: `Your enrollment in ${courseName} has been confirmed`,
-    content,
-  })
+  return renderToStaticMarkup(emailContent)
 }
 
-export const CourseCompletionEmailTemplate = ({
-  name,
-  courseName,
-  completionDate,
-  certificateUrl,
-  nextCourseRecommendations,
-}: CourseCompletionEmailTemplateProps): string => {
-  const content = `
-    <h1>Congratulations on Completing ${courseName}!</h1>
-    <p>Hello ${name || "there"},</p>
-    <p>Congratulations on successfully completing <strong>${courseName}</strong>! We're proud of your achievement and dedication to expanding your skills.</p>
-    <div class="info-box">
-      <h3>Course Completion Details</h3>
-      <p><strong>Course:</strong> ${courseName}</p>
-      <p><strong>Completion Date:</strong> ${completionDate}</p>
-    </div>
-    <div style="text-align: center;">
-      <a href="${certificateUrl}" class="button">View Your Certificate</a>
-    </div>
-    <div class="divider"></div>
-    <h3>What's Next?</h3>
-    <p>Continue your learning journey with these recommended courses:</p>
-    <ul>
-      ${nextCourseRecommendations.map((course) => `<li><a href="${course.url}">${course.name}</a> - ${course.description}</li>`).join("")}
-    </ul>
-    <p>We hope you enjoyed the course and look forward to seeing you in future training programs!</p>
-  `
+export const EventOrganizerNotificationTemplate = ({
+  eventName,
+  registrantName,
+  registrantEmail,
+  registrationDate,
+  ticketType,
+}: EventOrganizerNotificationProps): string => {
+  const emailContent = (
+    <BaseEmailLayout title={`New Registration for ${eventName}`}>
+      <h1>New Event Registration</h1>
+      <p>Hello Event Organizer,</p>
+      <p>
+        A new participant has registered for <strong>{eventName}</strong>.
+      </p>
+      <div style={{ background: "#f5f5f5", padding: "15px", borderRadius: "5px", margin: "20px 0" }}>
+        <h2>Registration Details</h2>
+        <p>
+          <strong>Event:</strong> {eventName}
+        </p>
+        <p>
+          <strong>Registrant:</strong> {registrantName}
+        </p>
+        <p>
+          <strong>Email:</strong> {registrantEmail}
+        </p>
+        <p>
+          <strong>Registration Date:</strong> {registrationDate}
+        </p>
+        <p>
+          <strong>Ticket Type:</strong> {ticketType}
+        </p>
+      </div>
+      <p>You can view all registrations in your admin dashboard.</p>
+      <p>
+        Best regards,
+        <br />
+        The Hardy Technology Platform
+      </p>
+    </BaseEmailLayout>
+  )
 
-  return BaseEmailTemplate({
-    title: `Congratulations on Completing ${courseName} - Hardy Technology`,
-    previewText: `You've successfully completed ${courseName}`,
-    content,
-  })
+  return renderToStaticMarkup(emailContent)
 }
 
-// 6. Event Organizer Email Templates
-
-export const EventApprovalEmailTemplate = ({
-  organizerName,
-  eventTitle,
-  eventDate,
-  eventLocation,
-  eventUrl,
-  adminComments,
-}: EventApprovalEmailTemplateProps): string => {
-  const content = `
-    <h1>Your Event Has Been Approved!</h1>
-    <p>Hello ${organizerName || "Organizer"},</p>
-    <p>We're pleased to inform you that your event <strong>${eventTitle}</strong> has been approved and is now listed on our platform.</p>
-    <div class="info-box">
-      <h3>Event Details</h3>
-      <p><strong>Title:</strong> ${eventTitle}</p>
-      <p><strong>Date:</strong> ${eventDate}</p>
-      <p><strong>Location:</strong> ${eventLocation}</p>
-    </div>
-    <div style="text-align: center;">
-      <a href="${eventUrl}" class="button">View Your Event</a>
-    </div>
-    ${
-      adminComments
-        ? `
-    <div class="divider"></div>
-    <h3>Admin Comments</h3>
-    <p>${adminComments}</p>
-    `
-        : ""
-    }
-    <div class="divider"></div>
-    <h3>Next Steps</h3>
-    <ul>
-      <li>Share your event on social media</li>
-      <li>Monitor registrations through your organizer dashboard</li>
-      <li>Prepare your event materials</li>
-    </ul>
-    <p>If you need to make any changes to your event, please log in to your organizer dashboard.</p>
-  `
-
-  return BaseEmailTemplate({
-    title: `Event Approved: ${eventTitle} - Hardy Technology`,
-    previewText: `Your event ${eventTitle} has been approved`,
-    content,
-  })
-}
-
-export const EventRejectionEmailTemplate = ({
-  organizerName,
-  eventTitle,
-  rejectionReason,
-  dashboardUrl,
-}: EventRejectionEmailTemplateProps): string => {
-  const content = `
-    <h1>Event Submission Update</h1>
-    <p>Hello ${organizerName || "Organizer"},</p>
-    <p>Thank you for submitting your event <strong>${eventTitle}</strong> for listing on our platform.</p>
-    <p>After careful review, we're unable to approve your event in its current form. We encourage you to address the feedback below and resubmit your event.</p>
-    <div class="info-box">
-      <h3>Feedback</h3>
-      <p>${rejectionReason}</p>
-    </div>
-    <div style="text-align: center;">
-      <a href="${dashboardUrl}" class="button">Edit and Resubmit</a>
-    </div>
-    <div class="divider"></div>
-    <h3>Common Reasons for Rejection</h3>
-    <ul>
-      <li>Incomplete event information</li>
-      <li>Unclear event description</li>
-      <li>Inappropriate content</li>
-      <li>Duplicate event submission</li>
-    </ul>
-    <p>If you have any questions or need clarification, please contact our events team at <a href="mailto:events@hardytechnology.xyz">events@hardytechnology.xyz</a>.</p>
-  `
-
-  return BaseEmailTemplate({
-    title: `Event Submission Update: ${eventTitle} - Hardy Technology`,
-    previewText: `Important information about your event submission`,
-    content,
-  })
-}
-
-// Helper function to convert React components to HTML strings
-export const renderEmailTemplate = (template: React.ReactElement): string => {
-  return renderToStaticMarkup(template)
-}
-
-// Function to generate Supabase Auth email templates
-export const generateSupabaseAuthTemplates = () => {
-  // These templates follow Supabase's template format with variables like {{ .ConfirmationURL }}
-
-  // Confirmation template (signup)
-  const confirmationTemplate = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Confirm Your Email</title>
-      <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          margin: 0;
-          padding: 0;
-          background-color: #f9fafb;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #ffffff;
-        }
-        .header {
-          text-align: center;
-          padding: 20px 0;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .logo {
-          font-size: 24px;
-          font-weight: bold;
-          color: #111827;
-        }
-        .logo span {
-          color: #3b82f6;
-        }
-        .content {
-          padding: 30px 20px;
-        }
-        .footer {
-          text-align: center;
-          padding: 20px;
-          font-size: 14px;
-          color: #6b7280;
-          border-top: 1px solid #e5e7eb;
-        }
-        .button {
-          display: inline-block;
-          padding: 12px 24px;
-          background-color: #3b82f6;
-          color: white !important;
-          text-decoration: none;
-          border-radius: 6px;
-          font-weight: 500;
-          margin: 20px 0;
-        }
-        .info-box {
-          background-color: #f3f4f6;
-          border-radius: 6px;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .social-links {
-          text-align: center;
-          margin: 20px 0;
-        }
-        .social-links a {
-          display: inline-block;
-          margin: 0 10px;
-          color: #6b7280;
-          text-decoration: none;
-        }
-        @media only screen and (max-width: 600px) {
-          .container {
-            width: 100%;
-          }
-          .content {
-            padding: 20px 15px;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">Hardy<span>Tech</span></div>
-        </div>
-        <div class="content">
-          <h1>Confirm Your Email</h1>
-          <p>Hello{{ if .Data.first_name }} {{ .Data.first_name }}{{ end }},</p>
-          <p>Thank you for signing up with Hardy Technology. We're excited to have you on board!</p>
-          <p>Please confirm your email address by clicking the button below:</p>
-          <div style="text-align: center;">
-            <a href="{{ .ConfirmationURL }}" class="button">Confirm Email Address</a>
-          </div>
-          <p>Or use this code: <strong>{{ .Token }}</strong></p>
-          <p>If you didn't create an account, you can safely ignore this email.</p>
-          <div class="info-box">
-            <p>Need help? Contact our support team at <a href="mailto:support@hardytechnology.xyz">support@hardytechnology.xyz</a></p>
-          </div>
-        </div>
-        <div class="footer">
-          <div class="social-links">
-            <a href="https://twitter.com/hardytech">Twitter</a>
-            <a href="https://facebook.com/hardytech">Facebook</a>
-            <a href="https://linkedin.com/company/hardytech">LinkedIn</a>
-          </div>
-          <p>© Hardy Technology. All rights reserved.</p>
-          <p>123 Tech Street, Lagos, Nigeria</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `
-
-  // Magic link template
-  const magicLinkTemplate = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Your Login Link</title>
-      <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          margin: 0;
-          padding: 0;
-          background-color: #f9fafb;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #ffffff;
-        }
-        .header {
-          text-align: center;
-          padding: 20px 0;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .logo {
-          font-size: 24px;
-          font-weight: bold;
-          color: #111827;
-        }
-        .logo span {
-          color: #3b82f6;
-        }
-        .content {
-          padding: 30px 20px;
-        }
-        .footer {
-          text-align: center;
-          padding: 20px;
-          font-size: 14px;
-          color: #6b7280;
-          border-top: 1px solid #e5e7eb;
-        }
-        .button {
-          display: inline-block;
-          padding: 12px 24px;
-          background-color: #3b82f6;
-          color: white !important;
-          text-decoration: none;
-          border-radius: 6px;
-          font-weight: 500;
-          margin: 20px 0;
-        }
-        .info-box {
-          background-color: #f3f4f6;
-          border-radius: 6px;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .social-links {
-          text-align: center;
-          margin: 20px 0;
-        }
-        .social-links a {
-          display: inline-block;
-          margin: 0 10px;
-          color: #6b7280;
-          text-decoration: none;
-        }
-        @media only screen and (max-width: 600px) {
-          .container {
-            width: 100%;
-          }
-          .content {
-            padding: 20px 15px;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">Hardy<span>Tech</span></div>
-        </div>
-        <div class="content">
-          <h1>Your Login Link</h1>
-          <p>Hello{{ if .Data.first_name }} {{ .Data.first_name }}{{ end }},</p>
-          <p>Click the button below to sign in to your Hardy Technology account:</p>
-          <div style="text-align: center;">
-            <a href="{{ .ConfirmationURL }}" class="button">Sign In</a>
-          </div>
-          <p>Or use this code: <strong>{{ .Token }}</strong></p>
-          <p>This link will expire in 10 minutes and can only be used once.</p>
-          <div class="info-box">
-            <p>If you didn't request this link, please ignore this email or contact us at <a href="mailto:support@hardytechnology.xyz">support@hardytechnology.xyz</a></p>
-          </div>
-        </div>
-        <div class="footer">
-          <div class="social-links">
-            <a href="https://twitter.com/hardytech">Twitter</a>
-            <a href="https://facebook.com/hardytech">Facebook</a>
-            <a href="https://linkedin.com/company/hardytech">LinkedIn</a>
-          </div>
-          <p>© Hardy Technology. All rights reserved.</p>
-          <p>123 Tech Street, Lagos, Nigeria</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `
-
-  // Reset password template
-  const resetPasswordTemplate = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Reset Your Password</title>
-      <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          margin: 0;
-          padding: 0;
-          background-color: #f9fafb;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #ffffff;
-        }
-        .header {
-          text-align: center;
-          padding: 20px 0;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .logo {
-          font-size: 24px;
-          font-weight: bold;
-          color: #111827;
-        }
-        .logo span {
-          color: #3b82f6;
-        }
-        .content {
-          padding: 30px 20px;
-        }
-        .footer {
-          text-align: center;
-          padding: 20px;
-          font-size: 14px;
-          color: #6b7280;
-          border-top: 1px solid #e5e7eb;
-        }
-        .button {
-          display: inline-block;
-          padding: 12px 24px;
-          background-color: #3b82f6;
-          color: white !important;
-          text-decoration: none;
-          border-radius: 6px;
-          font-weight: 500;
-          margin: 20px 0;
-        }
-        .info-box {
-          background-color: #f3f4f6;
-          border-radius: 6px;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .social-links {
-          text-align: center;
-          margin: 20px 0;
-        }
-        .social-links a {
-          display: inline-block;
-          margin: 0 10px;
-          color: #6b7280;
-          text-decoration: none;
-        }
-        @media only screen and (max-width: 600px) {
-          .container {
-            width: 100%;
-          }
-          .content {
-            padding: 20px 15px;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">Hardy<span>Tech</span></div>
-        </div>
-        <div class="content">
-          <h1>Reset Your Password</h1>
-          <p>Hello{{ if .Data.first_name }} {{ .Data.first_name }}{{ end }},</p>
-          <p>We received a request to reset your password. If you didn't make this request, you can safely ignore this email.</p>
-          <p>To reset your password, click the button below:</p>
-          <div style="text-align: center;">
-            <a href="{{ .ConfirmationURL }}" class="button">Reset Password</a>
-          </div>
-          <p>Or use this code: <strong>{{ .Token }}</strong></p>
-          <p>This link will expire in 24 hours.</p>
-          <div class="info-box">
-            <p>If you're having trouble, contact our support team at <a href="mailto:support@hardytechnology.xyz">support@hardytechnology.xyz</a></p>
-          </div>
-        </div>
-        <div class="footer">
-          <div class="social-links">
-            <a href="https://twitter.com/hardytech">Twitter</a>
-            <a href="https://facebook.com/hardytech">Facebook</a>
-            <a href="https://linkedin.com/company/hardytech">LinkedIn</a>
-          </div>
-          <p>© Hardy Technology. All rights reserved.</p>
-          <p>123 Tech Street, Lagos, Nigeria</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `
-
-  // Invite template
-  const inviteTemplate = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>You're Invited to Join Hardy Technology</title>
-      <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          margin: 0;
-          padding: 0;
-          background-color: #f9fafb;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #ffffff;
-        }
-        .header {
-          text-align: center;
-          padding: 20px 0;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .logo {
-          font-size: 24px;
-          font-weight: bold;
-          color: #111827;
-        }
-        .logo span {
-          color: #3b82f6;
-        }
-        .content {
-          padding: 30px 20px;
-        }
-        .footer {
-          text-align: center;
-          padding: 20px;
-          font-size: 14px;
-          color: #6b7280;
-          border-top: 1px solid #e5e7eb;
-        }
-        .button {
-          display: inline-block;
-          padding: 12px 24px;
-          background-color: #3b82f6;
-          color: white !important;
-          text-decoration: none;
-          border-radius: 6px;
-          font-weight: 500;
-          margin: 20px 0;
-        }
-        .info-box {
-          background-color: #f3f4f6;
-          border-radius: 6px;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .social-links {
-          text-align: center;
-          margin: 20px 0;
-        }
-        .social-links a {
-          display: inline-block;
-          margin: 0 10px;
-          color: #6b7280;
-          text-decoration: none;
-        }
-        @media only screen and (max-width: 600px) {
-          .container {
-            width: 100%;
-          }
-          .content {
-            padding: 20px 15px;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">Hardy<span>Tech</span></div>
-        </div>
-        <div class="content">
-          <h1>You're Invited!</h1>
-          <p>Hello,</p>
-          <p>You've been invited to join Hardy Technology. We're excited to have you on board!</p>
-          <p>Click the button below to accept the invitation and create your account:</p>
-          <div style="text-align: center;">
-            <a href="{{ .ConfirmationURL }}" class="button">Accept Invitation</a>
-          </div>
-          <p>Or use this code: <strong>{{ .Token }}</strong></p>
-          <p>This invitation will expire in 7 days.</p>
-          <div class="info-box">
-            <p>If you have any questions, please contact our support team at <a href="mailto:support@hardytechnology.xyz">support@hardytechnology.xyz</a></p>
-          </div>
-        </div>
-        <div class="footer">
-          <div class="social-links">
-            <a href="https://twitter.com/hardytech">Twitter</a>
-            <a href="https://facebook.com/hardytech">Facebook</a>
-            <a href="https://linkedin.com/company/hardytech">LinkedIn</a>
-          </div>
-          <p>© Hardy Technology. All rights reserved.</p>
-          <p>123 Tech Street, Lagos, Nigeria</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `
-
-  // Email change template
-  const emailChangeTemplate = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>Confirm Email Change</title>
-      <style>
-        body {
-          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-          line-height: 1.6;
-          color: #333;
-          margin: 0;
-          padding: 0;
-          background-color: #f9fafb;
-        }
-        .container {
-          max-width: 600px;
-          margin: 0 auto;
-          padding: 20px;
-          background-color: #ffffff;
-        }
-        .header {
-          text-align: center;
-          padding: 20px 0;
-          border-bottom: 1px solid #e5e7eb;
-        }
-        .logo {
-          font-size: 24px;
-          font-weight: bold;
-          color: #111827;
-        }
-        .logo span {
-          color: #3b82f6;
-        }
-        .content {
-          padding: 30px 20px;
-        }
-        .footer {
-          text-align: center;
-          padding: 20px;
-          font-size: 14px;
-          color: #6b7280;
-          border-top: 1px solid #e5e7eb;
-        }
-        .button {
-          display: inline-block;
-          padding: 12px 24px;
-          background-color: #3b82f6;
-          color: white !important;
-          text-decoration: none;
-          border-radius: 6px;
-          font-weight: 500;
-          margin: 20px 0;
-        }
-        .info-box {
-          background-color: #f3f4f6;
-          border-radius: 6px;
-          padding: 15px;
-          margin: 20px 0;
-        }
-        .social-links {
-          text-align: center;
-          margin: 20px 0;
-        }
-        .social-links a {
-          display: inline-block;
-          margin: 0 10px;
-          color: #6b7280;
-          text-decoration: none;
-        }
-        @media only screen and (max-width: 600px) {
-          .container {
-            width: 100%;
-          }
-          .content {
-            padding: 20px 15px;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="container">
-        <div class="header">
-          <div class="logo">Hardy<span>Tech</span></div>
-        </div>
-        <div class="content">
-          <h1>Confirm Email Change</h1>
-          <p>Hello{{ if .Data.first_name }} {{ .Data.first_name }}{{ end }},</p>
-          <p>You are requesting to update your email address from <strong>{{ .Email }}</strong> to <strong>{{ .NewEmail }}</strong>.</p>
-          <p>To confirm this change, click the button below:</p>
-          <div style="text-align: center;">
-            <a href="{{ .ConfirmationURL }}" class="button">Confirm Email Change</a>
-          </div>
-          <p>Or use this code: <strong>{{ .Token }}</strong></p>
-          <p>If you did not request this change, please contact our support team immediately.</p>
-          <div class="info-box">
-            <p>Need help? Contact our support team at <a href="mailto:support@hardytechnology.xyz">support@hardytechnology.xyz</a></p>
-          </div>
-        </div>
-        <div class="footer">
-          <div class="social-links">
-            <a href="https://twitter.com/hardytech">Twitter</a>
-            <a href="https://facebook.com/hardytech">Facebook</a>
-            <a href="https://linkedin.com/company/hardytech">LinkedIn</a>
-          </div>
-          <p>© Hardy Technology. All rights reserved.</p>
-          <p>123 Tech Street, Lagos, Nigeria</p>
-        </div>
-      </div>
-    </body>
-    </html>
-  `
-
+// Supabase Auth Email Templates
+export const getSupabaseAuthEmailTemplates = (): Record<string, { subject: string; html: string }> => {
   return {
-    confirmationTemplate,
-    magicLinkTemplate,
-    resetPasswordTemplate,
-    inviteTemplate,
-    emailChangeTemplate,
+    confirmation: {
+      subject: "Confirm Your Email Address",
+      html: VerificationEmailTemplate({ verificationUrl: "{{ .ConfirmationURL }}" }),
+    },
+    magic_link: {
+      subject: "Your Magic Link",
+      html: renderToStaticMarkup(
+        React.createElement(
+          BaseEmailLayout,
+          { title: "Your Magic Link" },
+          React.createElement("h1", null, "Your Magic Link"),
+          React.createElement("p", null, "Hello,"),
+          React.createElement("p", null, "Click the button below to sign in to your account:"),
+          React.createElement(
+            "p",
+            { style: { textAlign: "center" } },
+            React.createElement("a", { href: "{{ .MagicLink }}", className: "button" }, "Sign In"),
+          ),
+          React.createElement("p", null, "If you didn't request this link, you can safely ignore this email."),
+          React.createElement("p", null, "This link will expire in 24 hours."),
+          React.createElement("p", null, "Best regards,", React.createElement("br", null), "The Hardy Technology Team"),
+        ),
+      ),
+    },
+    recovery: {
+      subject: "Reset Your Password",
+      html: PasswordResetEmailTemplate({ resetUrl: "{{ .RecoveryURL }}" }),
+    },
+    invite: {
+      subject: "You've Been Invited",
+      html: renderToStaticMarkup(
+        React.createElement(
+          BaseEmailLayout,
+          { title: "You've Been Invited" },
+          React.createElement("h1", null, "You've Been Invited"),
+          React.createElement("p", null, "Hello,"),
+          React.createElement(
+            "p",
+            null,
+            "You've been invited to join Hardy Technology. Click the button below to accept the invitation:",
+          ),
+          React.createElement(
+            "p",
+            { style: { textAlign: "center" } },
+            React.createElement("a", { href: "{{ .InviteURL }}", className: "button" }, "Accept Invitation"),
+          ),
+          React.createElement("p", null, "If you weren't expecting this invitation, you can safely ignore this email."),
+          React.createElement("p", null, "Best regards,", React.createElement("br", null), "The Hardy Technology Team"),
+        ),
+      ),
+    },
+    email_change: {
+      subject: "Confirm Email Change",
+      html: renderToStaticMarkup(
+        React.createElement(
+          BaseEmailLayout,
+          { title: "Confirm Email Change" },
+          React.createElement("h1", null, "Confirm Email Change"),
+          React.createElement("p", null, "Hello,"),
+          React.createElement("p", null, "Click the button below to confirm your new email address:"),
+          React.createElement(
+            "p",
+            { style: { textAlign: "center" } },
+            React.createElement("a", { href: "{{ .EmailChangeURL }}", className: "button" }, "Confirm Email Change"),
+          ),
+          React.createElement("p", null, "If you didn't request this change, please contact support immediately."),
+          React.createElement("p", null, "Best regards,", React.createElement("br", null), "The Hardy Technology Team"),
+        ),
+      ),
+    },
   }
 }
-
-// Export the Supabase templates
-export const supabaseTemplates = generateSupabaseAuthTemplates()
 

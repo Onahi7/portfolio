@@ -1,41 +1,40 @@
 "use client"
 
-import Image from "next/image"
+import Image, { type ImageProps } from "next/image"
 import { useState } from "react"
+import { cn } from "@/lib/utils"
 
-interface OptimizedImageProps {
-  src: string
-  alt: string
-  width: number
-  height: number
-  className?: string
-  priority?: boolean
+interface OptimizedImageProps extends Omit<ImageProps, "onError" | "onLoad"> {
+  fallbackSrc?: string
 }
 
 export default function OptimizedImage({
   src,
   alt,
-  width,
-  height,
-  className = "",
-  priority = false,
+  fallbackSrc = "/images/placeholder.webp",
+  className,
+  ...props
 }: OptimizedImageProps) {
   const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(false)
 
   return (
-    <div className={`relative overflow-hidden ${className}`}>
+    <div className={cn("relative overflow-hidden", className)}>
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-gray-300 border-t-primary"></div>
+        </div>
+      )}
       <Image
-        src={src || "/placeholder.svg"}
+        src={error ? fallbackSrc : src}
         alt={alt}
-        width={width}
-        height={height}
-        priority={priority}
-        quality={90}
-        className={`
-          duration-700 ease-in-out
-          ${isLoading ? "scale-110 blur-sm" : "scale-100 blur-0"}
-        `}
-        onLoadingComplete={() => setIsLoading(false)}
+        className={cn("transition-opacity duration-500", isLoading ? "opacity-0" : "opacity-100")}
+        onLoad={() => setIsLoading(false)}
+        onError={() => {
+          setError(true)
+          setIsLoading(false)
+        }}
+        {...props}
       />
     </div>
   )
